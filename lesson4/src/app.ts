@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import 'reflect-metadata';
 import { createConnection, getManager } from 'typeorm';
 import { User } from './entity/user';
+import { Post } from './entity/post';
+import { Comment } from './entity/comments';
 
 const app = express();
 app.use(express.json());
@@ -12,9 +14,41 @@ app.get('/users', async (req:Request, res:Response) => {
     res.json(users);
 });
 
+app.get('/posts/:userId', async (req:Request, res:Response) => {
+    try {
+        const userPosts = await getManager().getRepository(Post)
+            .createQueryBuilder('post')
+            .where('post.userId = :id', { id: +req.params.userId })
+            .leftJoin('User', 'user', 'user.id = post.userId')
+            .getMany();
+        res.json(userPosts);
+    } catch (e) {
+        console.log(e);
+    }
+});
+
+app.get('/comments/:userId', async (req, res) => {
+    const comments = await getManager().getRepository(Comment)
+        .createQueryBuilder('comment')
+        .where('comment.authorId = :id', { id: +req.params.userId })
+        .leftJoin('comment.user', 'user')
+        .leftJoin('comment.post', 'post')
+        .getMany();
+    res.json(comments);
+});
+
 app.post('/users', async (req, res) => {
     const createdUser = await getManager().getRepository(User).save(req.body);
     res.json(createdUser);
+});
+app.patch('/posts/:userId', async (req, res) => {
+    const { text } = req.body;
+    const updatePost = await getManager()
+        .getRepository(Post)
+        .update({ id: Number(req.params.userId) }, {
+            text,
+        });
+    res.json(updatePost);
 });
 
 app.patch('/users:id', async (req, res) => {
